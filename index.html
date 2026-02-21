@@ -4,153 +4,109 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Loading...</title>
-
 <style>
-html, body {
-    margin:0;
-    height:100%;
-    background:#000;
-    overflow:hidden;
-    font-family: Arial, sans-serif;
-    color:white;
-}
-
-/* Background video */
-#bg {
-    position:fixed;
-    inset:0;
-    width:100vw;
-    height:100vh;
-    object-fit:cover;
-    z-index:0;
-    background:black;
-}
-
-/* Overlay */
-.overlay {
-    position:fixed;
-    inset:0;
-    display:flex;
-    justify-content:center;
-    align-items:center;
-    z-index:2;
-}
-
-.panel {
-    background:rgba(0,0,0,0.6);
-    padding:20px 25px;
-    border-radius:12px;
-    backdrop-filter:blur(6px);
-    max-width:750px;
-    width:90%;
-}
-
-h1 {
-    margin:0 0 10px 0;
-    text-align:center;
-}
-
-pre {
-    font-size:14px;
-    white-space:pre-wrap;
-    word-break:break-word;
-}
-
-/* Sound button */
-#soundBtn {
-    margin-top:15px;
-    width:100%;
-    padding:10px;
-    border-radius:8px;
-    border:none;
-    background:rgba(255,255,255,0.15);
-    color:white;
-    cursor:pointer;
-    font-size:14px;
-}
-
-#soundBtn:hover {
-    background:rgba(255,255,255,0.25);
-}
+  html, body { margin:0; height:100%; background:#000; overflow:hidden; font-family: Arial, sans-serif; color:#fff; }
+  #bg { position:fixed; inset:0; width:100vw; height:100vh; object-fit:cover; z-index:0; background:#000; }
+  .overlay { position:fixed; inset:0; display:grid; place-items:center; z-index:2; }
+  .panel { background:rgba(0,0,0,0.6); padding:20px 25px; border-radius:12px; backdrop-filter:blur(6px); max-width:750px; width:90%; }
+  h1 { margin:0 0 10px 0; text-align:center; }
+  pre { margin:0; font-size:14px; white-space:pre-wrap; word-break:break-word; }
+  #soundBtn {
+    margin-top:15px; width:100%; padding:10px; border-radius:8px; border:none;
+    background:rgba(255,255,255,0.15); color:#fff; cursor:pointer; font-size:14px; display:none;
+  }
+  #soundBtn:hover { background:rgba(255,255,255,0.25); }
+  #hint { margin-top:10px; font-size:12px; opacity:0.75; text-align:center; }
 </style>
 </head>
 <body>
 
 <video id="bg" autoplay loop playsinline preload="auto">
-    <source src="./Vibe.mp4" type="video/mp4">
+  <source src="./Vibe.mp4" type="video/mp4">
 </video>
 
 <div class="overlay">
-    <div class="panel">
-        <h1>Loading IP Info...</h1>
-        <pre id="info">Please wait...</pre>
-        <button id="soundBtn" style="display:none;">Click to Enable Sound</button>
-    </div>
+  <div class="panel">
+    <h1>Loading IP Info...</h1>
+    <pre id="info">Please wait...</pre>
+    <button id="soundBtn">Click to enable sound</button>
+    <div id="hint">If sound doesn’t start automatically, click the button once.</div>
+  </div>
 </div>
 
 <script>
-const video = document.getElementById("bg");
-const soundBtn = document.getElementById("soundBtn");
-const infoBox = document.getElementById("info");
+  const video = document.getElementById("bg");
+  const soundBtn = document.getElementById("soundBtn");
+  const infoBox = document.getElementById("info");
 
-/* Attempt autoplay WITH sound first */
-async function startVideo() {
+  function forceAudioOn() {
     video.muted = false;
+    video.volume = 1.0;
+    // for some browsers, setting these after play can help too
+  }
+
+  async function tryAutoplayWithSound() {
+    forceAudioOn();
     try {
-        await video.play();
-        soundBtn.style.display = "none";
+      await video.play();
+      // If browser silently forced it muted, show button anyway
+      if (video.muted || video.volume === 0) soundBtn.style.display = "block";
+      else soundBtn.style.display = "none";
     } catch (e) {
-        // If blocked, fallback to muted autoplay
-        video.muted = true;
-        try { await video.play(); } catch {}
-        soundBtn.style.display = "block";
+      // Blocked: fall back to muted autoplay
+      video.muted = true;
+      video.volume = 1.0;
+      try { await video.play(); } catch {}
+      soundBtn.style.display = "block";
     }
-}
+  }
 
-/* Enable sound on click */
-soundBtn.addEventListener("click", async () => {
-    video.muted = false;
+  soundBtn.addEventListener("click", async () => {
+    forceAudioOn();
     try {
-        await video.play();
-        soundBtn.style.display = "none";
-    } catch {
-        soundBtn.textContent = "Browser blocked sound";
+      await video.play();
+      soundBtn.style.display = "none";
+    } catch (e) {
+      soundBtn.textContent = "Browser still blocked sound";
     }
-});
+  });
 
-/* Start immediately */
-startVideo();
+  // Also allow any click anywhere to enable sound
+  window.addEventListener("click", async () => {
+    if (soundBtn.style.display !== "none") {
+      forceAudioOn();
+      try { await video.play(); soundBtn.style.display = "none"; } catch {}
+    }
+  });
 
-/* Load IP info */
-async function loadIPInfo() {
+  tryAutoplayWithSound();
+
+  async function loadIPInfo() {
     try {
-        const ipRes = await fetch("https://api.ipify.org?format=json");
-        const { ip } = await ipRes.json();
+      const ipRes = await fetch("https://api.ipify.org?format=json");
+      const { ip } = await ipRes.json();
+      const detailRes = await fetch("https://ipapi.co/json/");
+      const d = await detailRes.json();
 
-        const detailRes = await fetch("https://ipapi.co/json/");
-        const d = await detailRes.json();
+      const browserTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      const browserLocale = navigator.language;
+      const ua = navigator.userAgent;
 
-        const browserTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
-        const browserLocale = navigator.language;
-        const ua = navigator.userAgent;
-
-        infoBox.textContent =
-            "IP Address: " + ip + "\n\n" +
-            "City: " + d.city + "\n" +
-            "Region: " + d.region + "\n" +
-            "Country: " + d.country_name + "\n" +
-            "ISP: " + d.org + "\n\n" +
-            "Timezone (IP): " + d.timezone + "\n" +
-            "Timezone (Browser): " + browserTz + "\n" +
-            "Locale: " + browserLocale + "\n\n" +
-            "User Agent:\n" + ua;
-
+      infoBox.textContent =
+        `IP Address: ${ip}\n\n` +
+        `City: ${d.city}\n` +
+        `Region: ${d.region}\n` +
+        `Country: ${d.country_name}\n` +
+        `ISP: ${d.org}\n\n` +
+        `Timezone (IP): ${d.timezone}\n` +
+        `Timezone (Browser): ${browserTz}\n` +
+        `Locale: ${browserLocale}\n\n` +
+        `User Agent:\n${ua}`;
     } catch {
-        infoBox.textContent = "Failed to load IP info.";
+      infoBox.textContent = "Failed to load IP info.";
     }
-}
-
-loadIPInfo();
+  }
+  loadIPInfo();
 </script>
 
 </body>
