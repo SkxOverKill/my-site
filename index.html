@@ -1,102 +1,127 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Loading...</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Loading...</title>
 
-<style>
-    html, body {
-        margin: 0;
-        padding: 0;
-        height: 100%;
-        background: black;
-        font-family: Arial, sans-serif;
-        color: white;
-        overflow: hidden;
+  <style>
+    html, body { margin:0; height:100%; background:#000; overflow:hidden; color:#fff; font-family: Arial, sans-serif; }
+
+    /* Fullscreen background video */
+    #bg {
+      position: fixed;
+      inset: 0;
+      width: 100vw;
+      height: 100vh;
+      object-fit: cover;
+      z-index: 0;
+      background: #000;
     }
 
-    video {
-        position: fixed;
-        top: 0;
-        left: 0;
-        min-width: 100%;
-        min-height: 100%;
-        object-fit: cover;
-        z-index: -1;
-    }
-
+    /* Overlay sits on top of video */
     .overlay {
-        position: absolute;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        text-align: center;
-        background: rgba(0,0,0,0.6);
-        padding: 20px 30px;
-        border-radius: 12px;
-        backdrop-filter: blur(5px);
+      position: fixed;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      z-index: 2;
+      pointer-events: none; /* don’t block video from receiving interaction if needed */
     }
 
-    h1 {
-        margin: 0 0 10px 0;
-        font-size: 28px;
+    .panel {
+      pointer-events: auto;
+      text-align: left;
+      background: rgba(0,0,0,0.55);
+      padding: 18px 22px;
+      border-radius: 12px;
+      backdrop-filter: blur(6px);
+      max-width: min(720px, 92vw);
     }
 
-    pre {
-        text-align: left;
-        font-size: 14px;
-        white-space: pre-wrap;
-        word-break: break-word;
+    h1 { margin: 0 0 10px 0; font-size: 28px; text-align:center; }
+    pre { margin: 0; font-size: 14px; white-space: pre-wrap; word-break: break-word; }
+
+    /* Small “tap to start” helper if autoplay is blocked */
+    #tap {
+      margin-top: 12px;
+      font-size: 12px;
+      opacity: 0.8;
+      text-align: center;
+      display: none;
     }
-</style>
+  </style>
 </head>
 <body>
 
-<video autoplay muted loop playsinline>
-    <source src="Vibe.mp4" type="video/mp4">
-</video>
+  <video id="bg" autoplay muted loop playsinline preload="auto">
+    <source src="./Vibe.mp4" type="video/mp4">
+  </video>
 
-<div class="overlay">
-    <h1>Loading IP Info...</h1>
-    <pre id="info">Please wait...</pre>
-</div>
+  <div class="overlay">
+    <div class="panel">
+      <h1>Loading IP Info...</h1>
+      <pre id="info">Please wait...</pre>
+      <div id="tap">If the video is paused, click anywhere to start it.</div>
+    </div>
+  </div>
 
-<script>
-async function loadIPInfo() {
+  <script>
     const infoBox = document.getElementById("info");
+    const video = document.getElementById("bg");
+    const tap = document.getElementById("tap");
 
-    try {
-        // Public IP
+    // Debug (open DevTools console if needed)
+    video.addEventListener("error", () => {
+      console.log("VIDEO ERROR:", video.error);
+      tap.style.display = "block";
+    });
+
+    async function tryPlay() {
+      try {
+        await video.play();
+        tap.style.display = "none";
+      } catch (e) {
+        // Autoplay blocked — show helper
+        tap.style.display = "block";
+      }
+    }
+
+    // Try autoplay immediately
+    tryPlay();
+
+    // If autoplay blocked, start on first user interaction
+    window.addEventListener("click", tryPlay, { once: false });
+
+    async function loadIPInfo() {
+      try {
         const ipRes = await fetch("https://api.ipify.org?format=json");
-        const ipData = await ipRes.json();
+        const { ip } = await ipRes.json();
 
-        // Extra details (location, ISP, etc.)
         const detailRes = await fetch("https://ipapi.co/json/");
-        const detailData = await detailRes.json();
+        const d = await detailRes.json();
 
-        const browserTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+        const browserTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
         const browserLocale = navigator.language;
-        const userAgent = navigator.userAgent;
+        const ua = navigator.userAgent;
 
         infoBox.textContent =
-            "IP Address: " + ipData.ip + "\n\n" +
-            "City: " + detailData.city + "\n" +
-            "Region: " + detailData.region + "\n" +
-            "Country: " + detailData.country_name + "\n" +
-            "ISP: " + detailData.org + "\n\n" +
-            "Timezone (IP): " + detailData.timezone + "\n" +
-            "Timezone (Browser): " + browserTimezone + "\n" +
-            "Locale: " + browserLocale + "\n\n" +
-            "User Agent:\n" + userAgent;
-
-    } catch (err) {
+          `IP Address: ${ip}\n\n` +
+          `City: ${d.city}\n` +
+          `Region: ${d.region}\n` +
+          `Country: ${d.country_name}\n` +
+          `ISP: ${d.org}\n\n` +
+          `Timezone (IP): ${d.timezone}\n` +
+          `Timezone (Browser): ${browserTz}\n` +
+          `Locale: ${browserLocale}\n\n` +
+          `User Agent:\n${ua}`;
+      } catch (err) {
         infoBox.textContent = "Failed to load IP info.";
+      }
     }
-}
 
-loadIPInfo();
-</script>
+    loadIPInfo();
+  </script>
 
 </body>
 </html>
