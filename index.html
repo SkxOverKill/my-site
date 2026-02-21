@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Loading...</title>
+
+<style>
+    html, body {
+        margin: 0;
+        padding: 0;
+        height: 100%;
+        background: black;
+        font-family: Arial, sans-serif;
+        color: white;
+        overflow: hidden;
+    }
+
+    video {
+        position: fixed;
+        top: 0;
+        left: 0;
+        min-width: 100%;
+        min-height: 100%;
+        object-fit: cover;
+        z-index: -1;
+    }
+
+    .overlay {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        text-align: center;
+        background: rgba(0,0,0,0.6);
+        padding: 20px 30px;
+        border-radius: 12px;
+        backdrop-filter: blur(5px);
+    }
+
+    h1 {
+        margin: 0 0 10px 0;
+        font-size: 28px;
+    }
+
+    pre {
+        text-align: left;
+        font-size: 14px;
+        white-space: pre-wrap;
+        word-break: break-word;
+    }
+</style>
+</head>
+<body>
+
+<video autoplay muted loop playsinline>
+    <source src="Vibe.mp4" type="video/mp4">
+</video>
+
+<div class="overlay">
+    <h1>Loading IP Info...</h1>
+    <pre id="info">Please wait...</pre>
+</div>
+
+<script>
+async function loadIPInfo() {
+    const infoBox = document.getElementById("info");
+
+    try {
+        // Public IP
+        const ipRes = await fetch("https://api.ipify.org?format=json");
+        const ipData = await ipRes.json();
+
+        // Extra details (location, ISP, etc.)
+        const detailRes = await fetch("https://ipapi.co/json/");
+        const detailData = await detailRes.json();
+
+        const browserTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+        const browserLocale = navigator.language;
+        const userAgent = navigator.userAgent;
+
+        infoBox.textContent =
+            "IP Address: " + ipData.ip + "\n\n" +
+            "City: " + detailData.city + "\n" +
+            "Region: " + detailData.region + "\n" +
+            "Country: " + detailData.country_name + "\n" +
+            "ISP: " + detailData.org + "\n\n" +
+            "Timezone (IP): " + detailData.timezone + "\n" +
+            "Timezone (Browser): " + browserTimezone + "\n" +
+            "Locale: " + browserLocale + "\n\n" +
+            "User Agent:\n" + userAgent;
+
+    } catch (err) {
+        infoBox.textContent = "Failed to load IP info.";
+    }
+}
+
+loadIPInfo();
+</script>
+
+</body>
+</html>
