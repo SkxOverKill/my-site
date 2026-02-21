@@ -1,100 +1,129 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Loading...</title>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Loading...</title>
 
-  <style>
-    html, body { margin:0; height:100%; background:#000; overflow:hidden; color:#fff; font-family: Arial, sans-serif; }
+<style>
+html, body {
+    margin:0;
+    height:100%;
+    background:#000;
+    overflow:hidden;
+    font-family: Arial, sans-serif;
+    color:white;
+}
 
-    /* Fullscreen background video */
-    #bg {
-      position: fixed;
-      inset: 0;
-      width: 100vw;
-      height: 100vh;
-      object-fit: cover;
-      z-index: 0;
-      background: #000;
-    }
+/* Background video */
+#bg {
+    position:fixed;
+    inset:0;
+    width:100vw;
+    height:100vh;
+    object-fit:cover;
+    z-index:0;
+    background:black;
+}
 
-    /* Overlay sits on top of video */
-    .overlay {
-      position: fixed;
-      inset: 0;
-      display: grid;
-      place-items: center;
-      z-index: 2;
-      pointer-events: none; /* don’t block video from receiving interaction if needed */
-    }
+/* Overlay */
+.overlay {
+    position:fixed;
+    inset:0;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    z-index:2;
+}
 
-    .panel {
-      pointer-events: auto;
-      text-align: left;
-      background: rgba(0,0,0,0.55);
-      padding: 18px 22px;
-      border-radius: 12px;
-      backdrop-filter: blur(6px);
-      max-width: min(720px, 92vw);
-    }
+.panel {
+    background:rgba(0,0,0,0.6);
+    padding:20px 25px;
+    border-radius:12px;
+    backdrop-filter:blur(6px);
+    max-width:750px;
+    width:90%;
+}
 
-    h1 { margin: 0 0 10px 0; font-size: 28px; text-align:center; }
-    pre { margin: 0; font-size: 14px; white-space: pre-wrap; word-break: break-word; }
+h1 {
+    margin:0 0 10px 0;
+    text-align:center;
+}
 
-    /* Small “tap to start” helper if autoplay is blocked */
-    #tap {
-      margin-top: 12px;
-      font-size: 12px;
-      opacity: 0.8;
-      text-align: center;
-      display: none;
-    }
-  </style>
+pre {
+    font-size:14px;
+    white-space:pre-wrap;
+    word-break:break-word;
+}
+
+/* Sound button */
+#soundBtn {
+    margin-top:15px;
+    width:100%;
+    padding:10px;
+    border-radius:8px;
+    border:none;
+    background:rgba(255,255,255,0.15);
+    color:white;
+    cursor:pointer;
+    font-size:14px;
+}
+
+#soundBtn:hover {
+    background:rgba(255,255,255,0.25);
+}
+</style>
 </head>
 <body>
 
-  <video id="bg" autoplay muted loop playsinline preload="auto">
+<video id="bg" autoplay loop playsinline preload="auto">
     <source src="./Vibe.mp4" type="video/mp4">
-  </video>
+</video>
 
-  <div class="overlay">
+<div class="overlay">
     <div class="panel">
-      <h1>Loading IP Info...</h1>
-      <pre id="info">Please wait...</pre>
-      <div id="tap">If the video is paused, click anywhere to start it.</div>
+        <h1>Loading IP Info...</h1>
+        <pre id="info">Please wait...</pre>
+        <button id="soundBtn" style="display:none;">Click to Enable Sound</button>
     </div>
-  </div>
+</div>
 
-  <script>
-    const infoBox = document.getElementById("info");
-    const video = document.getElementById("bg");
-    const tap = document.getElementById("tap");
+<script>
+const video = document.getElementById("bg");
+const soundBtn = document.getElementById("soundBtn");
+const infoBox = document.getElementById("info");
 
-    // Debug (open DevTools console if needed)
-    video.addEventListener("error", () => {
-      console.log("VIDEO ERROR:", video.error);
-      tap.style.display = "block";
-    });
-
-    async function tryPlay() {
-      try {
+/* Attempt autoplay WITH sound first */
+async function startVideo() {
+    video.muted = false;
+    try {
         await video.play();
-        tap.style.display = "none";
-      } catch (e) {
-        // Autoplay blocked — show helper
-        tap.style.display = "block";
-      }
+        soundBtn.style.display = "none";
+    } catch (e) {
+        // If blocked, fallback to muted autoplay
+        video.muted = true;
+        try { await video.play(); } catch {}
+        soundBtn.style.display = "block";
     }
+}
 
-    // Try autoplay immediately
-    tryPlay();
+/* Enable sound on click */
+soundBtn.addEventListener("click", async () => {
+    video.muted = false;
+    try {
+        await video.play();
+        soundBtn.style.display = "none";
+    } catch {
+        soundBtn.textContent = "Browser blocked sound";
+    }
+});
 
-    // If autoplay blocked, start on first user interaction
-    window.addEventListener("click", tryPlay, { once: false });
+/* Start immediately */
+startVideo();
 
-    async function loadIPInfo() {
-      try {
+/* Load IP info */
+async function loadIPInfo() {
+    try {
         const ipRes = await fetch("https://api.ipify.org?format=json");
         const { ip } = await ipRes.json();
 
@@ -106,22 +135,23 @@
         const ua = navigator.userAgent;
 
         infoBox.textContent =
-          `IP Address: ${ip}\n\n` +
-          `City: ${d.city}\n` +
-          `Region: ${d.region}\n` +
-          `Country: ${d.country_name}\n` +
-          `ISP: ${d.org}\n\n` +
-          `Timezone (IP): ${d.timezone}\n` +
-          `Timezone (Browser): ${browserTz}\n` +
-          `Locale: ${browserLocale}\n\n` +
-          `User Agent:\n${ua}`;
-      } catch (err) {
-        infoBox.textContent = "Failed to load IP info.";
-      }
-    }
+            "IP Address: " + ip + "\n\n" +
+            "City: " + d.city + "\n" +
+            "Region: " + d.region + "\n" +
+            "Country: " + d.country_name + "\n" +
+            "ISP: " + d.org + "\n\n" +
+            "Timezone (IP): " + d.timezone + "\n" +
+            "Timezone (Browser): " + browserTz + "\n" +
+            "Locale: " + browserLocale + "\n\n" +
+            "User Agent:\n" + ua;
 
-    loadIPInfo();
-  </script>
+    } catch {
+        infoBox.textContent = "Failed to load IP info.";
+    }
+}
+
+loadIPInfo();
+</script>
 
 </body>
 </html>
