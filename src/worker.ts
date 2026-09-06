@@ -10,7 +10,7 @@
  */
 import "dotenv/config";
 
-import { Worker, type Job } from "bullmq";
+import { DelayedError, Worker, type Job } from "bullmq";
 import { db } from "@/lib/db";
 import { createQueueConnection } from "@/lib/redis";
 import {
@@ -49,7 +49,10 @@ const enrichmentWorker = new Worker<EnrichmentJob>(
     const limited = outcomes.find((o) => o.status === "rate_limited");
     if (limited && limited.status === "rate_limited") {
       await job.moveToDelayed(Date.now() + Math.max(1000, limited.retryAfterMs));
-      return { deferred: true, retryAfterMs: limited.retryAfterMs };
+      // BullMQ requires the processor to exit by throwing DelayedError after
+      // moveToDelayed. Returning normally would make the worker finalize the
+      // job as completed, so the deferred retry would never run.
+      throw new DelayedError();
     }
 
     if (outcomes.some((o) => o.status === "fetched")) {
